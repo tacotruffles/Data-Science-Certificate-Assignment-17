@@ -147,7 +147,9 @@ To the lay person, describe what the coefficients from your model mean?
 Assume all data is already cleaned. From the `planes` table, using `year`, `engine`, and `seats` - build a model to predict `manufacturer` (filtered for you). Describe your model and interpret your results.
 ```{r}
 clean_data <- planes %>% 
-  filter(manufacturer %in% c('BOEING', 'AIRBUS INDUSTRIE', 'BOMBARDIER INC', 'AIRBUS', 'EMBRAER'))
+  filter(manufacturer %in% c('BOEING', 'AIRBUS INDUSTRIE', 'BOMBARDIER INC', 'AIRBUS', 'EMBRAER')) %>%
+  select(manufacturer, year, engine, seats) %>%
+  drop_na()
 
 dat <- clean_data %>% rename(Class = manufacturer)
 
@@ -160,16 +162,16 @@ dat_test = dat %>%
 dat_train = dat_train %>% select(-id)
 dat_test = dat_test %>% select(-id)
 
-train_control = trainControl(method='cv', number=10)
+train_control = trainControl(method='cv', number=2)
 
 dat_train
 
+colSums(is.na(dat_train))
 model_ranger = model_nb = train(
   dat_train %>% select(-Class),
   dat_train$Class,
   trControl = train_control,
-  importance = "impurity",
-  method = 'ranger'
+  method = 'rf'
 )
 model_ranger
 ```
