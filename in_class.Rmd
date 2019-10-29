@@ -15,6 +15,7 @@ airlines = airlines
 airports = airports
 planes = planes
 weather = weather
+flights = flights
 ```
 
 Based off of: <https://r4ds.had.co.nz/relational-data.html>
@@ -43,47 +44,99 @@ head(weather)
 Join `weather` and `airports` (will need some intermediate steps)  
 
 ```{r}
-weather_airports <- ...
+weather_airports <- flights %>%
+  left_join(weather, by = c("origin", "year","month","day","hour")) %>%
+  left_join(airports, by = c("origin" = "faa"))
+
+weather_airports
+
 ```
 
 
 From the `weather_airports` data you created (via joining tables). Find the average `distance` the `carrier` `UA` flies whose `origin` is `JFK`
 ```{r}
-
+weather_airports %>%
+  filter(origin == "JFK") %>%
+  filter(carrier == 'UA') %>%
+  summarize(avg = mean(distance))
 ```
 
 
 Similar to the previous statement, calculate the average `distance` of each `carrier` whose `origin` is `JFK` and display them from highest to lowest.
 ```{r}
-
+weather_airports %>%
+  filter(origin == "JFK") %>%
+  group_by(carrier) %>%
+  summarize(avg = mean(distance)) %>%
+  arrange(-avg)
+  
 ```
 
 Display a plot of the top 5 `carrier` that flew the greatest overall distance in March of 2013, result should show `carrier` as well as `total_distance`
 ```{r}
+top5 <- weather_airports %>%
+  filter(year == 2013, month == 3) %>%
+  group_by(carrier) %>%
+  summarize(
+    total_distance = sum(distance)
+  ) %>%
+  arrange(total_distance) %>%
+  top_n(5, total_distance)
 
+top5 %>%
+  ggplot(aes(x=fct_reorder(carrier, total_distance), y=total_distance)) +
+  geom_col() +
+  coord_flip()
 ```
 
 
 Which `planes` `model` was the most common in `year` 2004?
 ```{r}
-
+planes %>% 
+  filter(year == 2004) %>%
+  group_by(model) %>%
+  count() %>%
+  arrange(-n) %>%
+  head(1) 
 ```
 
 Show a histogram with 20 bins of the `hour` from `flights`.
 ```{r}
-
+flights %>%
+  ggplot(aes(x=hour)) +
+  geom_histogram(bins=20)
 ```
 
 
-Make a scatter plot of average `day` `average_distance` from `flights` with the x-axis as `carrier` `UA` and y-axis as `carrier` `AA`
+Make a scatter plot of `average_distance` from `flights` with the x-axis as `carrier` `UA` and y-axis as `carrier` `AA`
 ```{r}
-
+flights %>%
+  filter(carrier == 'UA' | carrier == 'AA') %>%
+  group_by(carrier, day) %>%
+  summarize(avg_dist = mean(distance)) %>%
+  spread(key = carrier, value = avg_dist) %>%
+  ggplot(aes(x=UA,y=AA)) +
+  geom_point() +
+  geom_smooth(method='lm')
+  
 ```
 
 
 Create a linear model between `dep_delay` and `arr_delay` where `arr_delay` is the target variable.
 ```{r}
+# No base-rate with multi-factor targets?
 
+# train_control = trainControl(method='cv', number=10)
+# 
+# model_lm = model_nb = train(
+#   # dat_train_up %>% select(-Class), different way to pass in x,y
+#   # dat_train_up$Class,
+#   Class ~ .,
+#   data = dat_train_up,
+#   trControl = train_control,
+#   method = 'lm'
+# )
+# model_lm
 ```
 
 To the lay person, describe what the coefficients from your model mean?
@@ -94,12 +147,40 @@ To the lay person, describe what the coefficients from your model mean?
 Assume all data is already cleaned. From the `planes` table, using `year`, `engine`, and `seats` - build a model to predict `manufacturer` (filtered for you). Describe your model and interpret your results.
 ```{r}
 clean_data <- planes %>% 
-  filter(manufacturer %in% c('BOEING', 'AIRBUS INDUSTRIE', 'BOMBARDIER INC', 'AIRBUS', 'EMBRAER')) %>%
-  ...
+  filter(manufacturer %in% c('BOEING', 'AIRBUS INDUSTRIE', 'BOMBARDIER INC', 'AIRBUS', 'EMBRAER'))
+
+dat <- clean_data %>% rename(Class = manufacturer)
+
+dat <- dat %>% mutate(id = row_number())
+sample_volume = round(0.7 * nrow(dat))
+dat_train = dat %>%
+  sample_n(sample_volume)
+dat_test = dat %>%
+  anti_join(dat_train, by = 'id')
+dat_train = dat_train %>% select(-id)
+dat_test = dat_test %>% select(-id)
+
+train_control = trainControl(method='cv', number=10)
+
+dat_train
+
+model_ranger = model_nb = train(
+  dat_train %>% select(-Class),
+  dat_train$Class,
+  trControl = train_control,
+  importance = "impurity",
+  method = 'ranger'
+)
+model_ranger
 ```
 
 
 
+```{r}
+predictions = predict(model_ranger, newdata = dat_test, type = 'raw')
+actuals = dat_test$Class
+confusionMatrix(predictions, actuals)
+```
 
 
 
