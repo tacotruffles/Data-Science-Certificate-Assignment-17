@@ -151,7 +151,7 @@ clean_data <- planes %>%
   select(manufacturer, year, engine, seats) %>%
   drop_na()
 
-dat <- clean_data %>% rename(Class = manufacturer)
+dat <- clean_data %>% rename(Class = manufacturer) %>% mutate(Class = as.factor(Class))
 
 dat <- dat %>% mutate(id = row_number())
 sample_volume = round(0.7 * nrow(dat))
@@ -164,14 +164,14 @@ dat_test = dat_test %>% select(-id)
 
 train_control = trainControl(method='cv', number=2)
 
-dat_train
+dat_train = as.data.frame(dat_train)
 
 colSums(is.na(dat_train))
-model_ranger = model_nb = train(
+model_ranger = train(
   dat_train %>% select(-Class),
   dat_train$Class,
   trControl = train_control,
-  method = 'rf'
+  method = 'ranger',
 )
 model_ranger
 ```
